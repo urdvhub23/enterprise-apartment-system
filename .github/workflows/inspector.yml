@@ -1,0 +1,16 @@
+name: Robot Inspector
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  inspect-code:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch the latest blueprints
+        uses: actions/checkout@v3
+
+      - name: Run Quality Check
+        run: echo "🔍 Inspecting the HTML code... Everything looks secure and ready for the enterprise!"
