@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: ghcr.io/urdvhub23/enterprise-apartment-system-frontend:latest
+          image: ghcr.io/urdvhub23/enterprise-apartment-system-frontend:5b14ae0f6b81651b5cf679458bb9782c90b7cff8
           ports:
             - containerPort: 80
           resources:
