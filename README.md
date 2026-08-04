@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Apartment Management System
 
 A full-stack apartment management platform: React web app + installable
