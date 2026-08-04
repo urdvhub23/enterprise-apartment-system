@@ -1,0 +1,87 @@
+version: '3.8'
+
+# Runs both databases locally in containers — no cloud account, no manual
+# install, no separate "creating a database" step. Docker creates empty
+# Postgres and MongoDB instances on your machine the first time you run
+# `docker compose up`, using the credentials below (already matched to
+# backend/.env.example, so the backend connects with zero extra config).
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: apartment-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: apartment_billing
+    ports:
+      - "5432:5432"
+    volumes:
+      - apartment_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    container_name: apartment-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - apartment_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: apartment-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      NODE_ENV: development
+      CLIENT_URL: http://localhost:5173
+      JWT_SECRET: change_this_to_a_long_random_secret
+      JWT_EXPIRES_IN: 7d
+      # Note: use the service name "postgres"/"mongo", not "localhost" —
+      # containers reach each other by service name on the Docker network.
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: apartment_billing
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+      MONGO_URI: mongodb://mongo:27017/apartment_docs
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX: 200
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build: ./frontend
+    container_name: apartment-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  apartment_postgres_data:
+  apartment_mongo_data:

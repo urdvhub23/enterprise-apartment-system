@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.ApartmentManager" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#1B2430</item>
+        <item name="colorPrimaryDark">#1B2430</item>
+        <item name="colorAccent">#9C7A34</item>
+    </style>
+</resources>
