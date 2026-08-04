@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Apartment Management System
 
 A full-stack apartment management platform: React web app + installable
@@ -103,3 +104,7 @@ see `docs/ARCHITECTURE.md` §2 for what's intentionally left out and why.
 - Automated tests
 
 Happy to build out any of these next — just say which one.
+=======
+# enterprise-apartment-system
+Inspired by "Apartment System problems" this scalable Apartment Management System (AMS) centralizes operations, eliminating manual tracking and fragmented communication. Built on open-source DevOps, it ensures 99.9% uptime, strict security, and seamless updates, scaling from single complexes to multi-tenant enterprises.
+>>>>>>> 10906c25a4cacf79cd971dca72268235defcd91b
