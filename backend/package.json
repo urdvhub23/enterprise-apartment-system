@@ -8,6 +8,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "migrate": "node scripts/migrate.js",
+    "db:sync": "node scripts/syncProd.js",
     "seed": "node scripts/seed.js"
   },
   "dependencies": {
