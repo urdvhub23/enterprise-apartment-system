@@ -1,0 +1,128 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ${{ github.repository }}-backend
+  IMAGE_FRONTEND: ${{ github.repository }}-frontend
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Syntax-check backend
+        working-directory: backend
+        run: |
+          for f in $(find . -name "*.js" -not -path "./node_modules/*"); do
+            node --check "$f"
+          done
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Build frontend (fails on any compile error)
+        working-directory: frontend
+        run: npm run build
+
+  build-and-scan:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t ${{ env.IMAGE_BACKEND }}:${{ github.sha }} ./backend
+
+      - name: Build frontend image
+        run: docker build -f frontend/Dockerfile.prod -t ${{ env.IMAGE_FRONTEND }}:${{ github.sha }} ./frontend
+
+      - name: Scan backend image with Trivy
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+      - name: Scan frontend image with Trivy
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+  push-images:
+    needs: build-and-scan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:latest
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:latest
+
+  update-manifests:
+    needs: push-images
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump image tags in k8s manifests
+        run: |
+          sed -i "s|image: ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}:${{ github.sha }}|" infra/k8s/base/05-backend.yaml
+          sed -i "s|image: ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_FRONTEND }}:${{ github.sha }}|" infra/k8s/base/06-frontend.yaml
+
+      - name: Commit updated manifests
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infra/k8s/base/05-backend.yaml infra/k8s/base/06-frontend.yaml
+          git diff --staged --quiet || git commit -m "ci: deploy image ${{ github.sha }}"
+          git push
