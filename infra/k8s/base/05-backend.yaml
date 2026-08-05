@@ -25,7 +25,7 @@ spec:
           # .github/workflows/ci-cd.yml) -- this tag gets updated by that
           # pipeline, which is what ArgoCD then detects and syncs (GitOps).
           
-          image: ghcr.io/urdvhub23/enterprise-apartment-system-backend:5b14ae0f6b81651b5cf679458bb9782c90b7cff8
+          image: ghcr.io/urdvhub23/enterprise-apartment-system-backend:df010025fa52562c1ef40926c48374dd0173f83f
 
           ports:
             - containerPort: 5000
