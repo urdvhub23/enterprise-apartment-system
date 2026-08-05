@@ -1,3 +1,8 @@
+# Why a dedicated namespace: it's the Kubernetes-native equivalent of
+# "isolated microservices" from the proposal -- RBAC, network policies,
+# and resource quotas can all be scoped to this namespace without
+# affecting anything else that might run on the same cluster later
+# (e.g. a second society's deployment, or a staging environment).
 apiVersion: v1
 kind: Namespace
 metadata:

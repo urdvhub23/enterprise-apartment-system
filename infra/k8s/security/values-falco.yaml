@@ -1,0 +1,56 @@
+# Helm values for Falco -- implements "Falco provides runtime threat
+# detection within the Kubernetes cluster, enforcing a Zero-Trust network
+# policy" from the proposal. Falco watches actual kernel syscalls from
+# every running container in real time and alerts on suspicious behavior
+# -- this is a fundamentally different layer from Trivy (which checks
+# known CVEs in installed packages): Falco catches active exploitation
+# happening right now, even for a vulnerability nobody has a CVE for yet.
+#
+# Install with:
+#   helm repo add falcosecurity https://falcosecurity.github.io/charts
+#   helm install falco falcosecurity/falco \
+#     --namespace falco --create-namespace \
+#     -f infra/k8s/security/values-falco.yaml
+
+driver:
+  kind: ebpf   # eBPF instead of a kernel module -- no node reboot or custom kernel headers needed, works cleanly on a standard EC2 AMI
+
+# Custom rules specific to this application, layered on top of Falco's
+# default rule set (which already covers generic threats like shell spawned
+# in a container, unexpected outbound connections, etc.)
+customRules:
+  ams-rules.yaml: |-
+    - rule: Unexpected process in postgres container
+      desc: Postgres containers should only ever run the postgres process itself
+      condition: >
+        spawned_process and container and
+        k8s.ns.name = "apartment-system" and
+        k8s.pod.label.app = "postgres" and
+        not proc.name in (postgres, pg_isready, pg_ctl)
+      output: >
+        Unexpected process in postgres pod (user=%user.name command=%proc.cmdline pod=%k8s.pod.name)
+      priority: CRITICAL
+
+    - rule: Shell spawned in backend container
+      desc: >
+        The backend Node.js process should never legitimately spawn an
+        interactive shell -- this pattern is a strong indicator of a
+        remote code execution attempt succeeding.
+      condition: >
+        spawned_process and container and
+        k8s.ns.name = "apartment-system" and
+        k8s.pod.label.app = "backend" and
+        proc.name in (sh, bash, zsh)
+      output: >
+        Shell spawned in backend pod (user=%user.name command=%proc.cmdline pod=%k8s.pod.name)
+      priority: CRITICAL
+
+falcosidekick:
+  enabled: true   # forwards Falco alerts onward (Slack, PagerDuty, etc.) -- wire a real destination before relying on this
+  config:
+    slack:
+      webhookurl: ""   # placeholder -- fill with a real incoming webhook URL, never commit a real one here
+
+resources:
+  requests: { cpu: "100m", memory: "256Mi" }
+  limits: { cpu: "200m", memory: "512Mi" }

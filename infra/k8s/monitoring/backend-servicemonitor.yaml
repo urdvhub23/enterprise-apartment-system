@@ -1,0 +1,23 @@
+# Tells Prometheus (installed via values-prometheus.yaml) to scrape the
+# backend's /metrics endpoint every 15s. Without this CRD, Prometheus and
+# the backend's real metrics from backend/middleware/metrics.js would
+# never actually connect -- this is the missing link that makes the
+# "Prometheus" line item in the proposal a genuine, working integration
+# rather than an unconnected tool sitting next to the app.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ams-backend
+  namespace: apartment-system
+  labels:
+    release: monitoring   # must match serviceMonitorSelector in values-prometheus.yaml
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  namespaceSelector:
+    matchNames: [apartment-system]
+  endpoints:
+    - port: http           # matches the named port on the backend Service -- see note in 05-backend.yaml
+      path: /metrics
+      interval: 15s

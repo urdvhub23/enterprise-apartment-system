@@ -1,10 +1,16 @@
+# Backend is a Deployment, not a StatefulSet -- unlike Postgres/Mongo it's
+# stateless (no local data to preserve), so pods ARE interchangeable and
+# safely horizontally scalable. That statelessness is exactly what makes
+# the HPA below possible: you can only autoscale a service safely if any
+# replica can handle any request, which is true here because all state
+# lives in Postgres/Mongo, not in the backend process itself.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
   namespace: apartment-system
 spec:
-  replicas: 2
+  replicas: 2   # start at 2 for basic redundancy; HPA scales beyond this under load
   selector:
     matchLabels:
       app: backend
@@ -15,7 +21,10 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/urdvhub23/enterprise-apartment-system-backend:latest
+          # Built and pushed by the CI/CD pipeline (see
+          # .github/workflows/ci-cd.yml) -- this tag gets updated by that
+          # pipeline, which is what ArgoCD then detects and syncs (GitOps).
+          image: ghcr.io/OWNER/REPO-backend:latest
           ports:
             - containerPort: 5000
           envFrom:
@@ -46,6 +55,10 @@ spec:
       port: 5000
       targetPort: 5000
 ---
+# This is the direct implementation of "Kubernetes provides Horizontal Pod
+# Autoscaling (HPA) to automatically handle traffic spikes during morning
+# and evening hours" from the proposal. It watches average CPU utilization
+# across all backend pods and adds/removes replicas to keep it near 70%.
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

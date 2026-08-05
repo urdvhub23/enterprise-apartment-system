@@ -1,10 +1,27 @@
+# Single entry point for all external traffic, replacing the standalone
+# nginx container from the Docker Compose setup. This uses Traefik as the
+# ingress controller rather than nginx-ingress, because k3s ships with
+# Traefik built in and already running by default -- installing a second
+# ingress controller (nginx-ingress) alongside it would leave two
+# controllers competing for the same host ports 80/443, so this manifest
+# targets the one that's already there instead of adding a redundant one.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: ams-ingress
   namespace: apartment-system
   annotations:
+    # WebSocket support for Socket.IO chat -- without extending the
+    # timeout, the ingress controller's default proxy timeout breaks
+    # long-lived WebSocket connections. This is Traefik's annotation
+    # syntax (IngressRoute-style timeouts are configured differently if
+    # you migrate to Traefik's native CRDs later; this works via the
+    # standard Ingress resource in the meantime).
     traefik.ingress.kubernetes.io/router.entrypoints: websecure,web
+    # cert-manager annotation -- issues a free Let's Encrypt cert
+    # automatically once cert-manager is installed (see infra/DEVOPS.md).
+    # This annotation is controller-agnostic, works the same with Traefik
+    # or nginx-ingress.
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: traefik

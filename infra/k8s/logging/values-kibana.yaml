@@ -1,0 +1,15 @@
+# Helm values for Elastic's official `kibana` chart -- the visualization
+# layer on top of Elasticsearch, for reading centralized logs.
+#
+# Install with:
+#   helm install kibana elastic/kibana --namespace logging \
+#     -f infra/k8s/logging/values-kibana.yaml
+
+elasticsearchHosts: "http://elasticsearch-master:9200"
+
+resources:
+  requests: { cpu: "250m", memory: "512Mi" }
+  limits: { cpu: "500m", memory: "1Gi" }
+
+service:
+  type: ClusterIP   # exposed via the same Ingress as the app, not a public LoadBalancer

@@ -1,0 +1,41 @@
+# Helm values for Elastic's `logstash` chart -- receives raw log lines
+# from Filebeat, parses/structures them, forwards the structured result
+# into Elasticsearch. This is the "L" in ELK that the other two files in
+# this folder alone don't cover.
+#
+# Install with:
+#   helm install logstash elastic/logstash --namespace logging \
+#     -f infra/k8s/logging/values-logstash.yaml
+
+logstashConfig:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+
+logstashPipeline:
+  ams.conf: |
+    input {
+      beats { port => 5044 }
+    }
+    filter {
+      # Backend access logs come from morgan's 'combined' format (see
+      # backend/server.js) -- this grok pattern parses that into real,
+      # queryable fields (method, path, status, response time) instead of
+      # one unstructured string per log line.
+      if [kubernetes][labels][app] == "backend" {
+        grok {
+          match => {
+            "message" => "%{COMBINEDAPACHELOG}"
+          }
+        }
+      }
+    }
+    output {
+      elasticsearch {
+        hosts => ["http://elasticsearch-master:9200"]
+        index => "ams-logs-%{+YYYY.MM.dd}"
+      }
+    }
+
+resources:
+  requests: { cpu: "250m", memory: "512Mi" }
+  limits: { cpu: "500m", memory: "1Gi" }

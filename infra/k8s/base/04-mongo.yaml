@@ -1,3 +1,5 @@
+# Same StatefulSet reasoning as Postgres above -- MongoDB also needs a
+# stable identity and a persistent, pod-following volume.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

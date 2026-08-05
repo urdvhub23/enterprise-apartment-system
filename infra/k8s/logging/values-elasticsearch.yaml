@@ -1,0 +1,38 @@
+# Helm values for Elastic's official `elasticsearch` chart -- implements
+# "Centralized logging is handled by the ELK Stack (Elasticsearch,
+# Logstash, Kibana)" from the proposal.
+#
+# HONEST RESOURCE WARNING: a real Elasticsearch cluster wants 2GB+ heap
+# PER NODE minimum, even at "single node dev" scale. Combined with
+# Kubernetes itself, Prometheus/Grafana, and the app's own containers,
+# this pushes total cluster memory needs well past what a t3.medium (4GB)
+# can handle -- realistically this needs a t3.large (8GB) or bigger node,
+# or Elasticsearch alone on its own node. This values file is written
+# for the smallest viable single-node Elasticsearch footprint, not a
+# realistic production sizing -- treat it as "runs for a demo," not
+# "runs under real load."
+#
+# Install with:
+#   helm repo add elastic https://helm.elastic.co
+#   helm install elasticsearch elastic/elasticsearch \
+#     --namespace logging --create-namespace \
+#     -f infra/k8s/logging/values-elasticsearch.yaml
+
+replicas: 1
+minimumMasterNodes: 1
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1536Mi"
+  limits:
+    cpu: "1000m"
+    memory: "2Gi"
+
+esJavaOpts: "-Xmx1g -Xms1g"
+
+volumeClaimTemplate:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi

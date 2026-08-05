@@ -1,0 +1,33 @@
+# Helm values for Elastic's `filebeat` chart, deployed as a DaemonSet (one
+# pod per cluster node) -- this is the actual collector that reads every
+# container's stdout/stderr log files off the node's disk and ships them
+# onward. Without this, Elasticsearch/Logstash/Kibana would be running
+# with nothing feeding them -- Filebeat is the missing link that makes
+# "ELK" collect real application logs instead of sitting empty.
+#
+# Install with:
+#   helm install filebeat elastic/filebeat --namespace logging \
+#     -f infra/k8s/logging/values-filebeat.yaml
+
+daemonset:
+  filebeatConfig:
+    filebeat.yml: |
+      filebeat.autodiscover:
+        providers:
+          - type: kubernetes
+            node: ${NODE_NAME}
+            hints.enabled: true
+            hints.default_config:
+              type: container
+              paths:
+                - /var/log/containers/*${data.kubernetes.container.id}.log
+      # Ships to Logstash for parsing (see values-logstash.yaml) rather
+      # than straight to Elasticsearch, so the backend's morgan access
+      # logs get structured into real fields (method, status, latency)
+      # instead of landing as one opaque text blob per line.
+      output.logstash:
+        hosts: ["logstash:5044"]
+
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits: { cpu: "200m", memory: "256Mi" }

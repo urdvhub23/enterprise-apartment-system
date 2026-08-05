@@ -1,0 +1,67 @@
+# Helm values for the kube-prometheus-stack chart (Prometheus + Grafana +
+# Alertmanager bundled together) -- implements the proposal's "System
+# health and application performance are actively monitored via
+# Prometheus and visualized in Grafana, triggering instant alerts for any
+# anomalies."
+#
+# WHY HELM INSTEAD OF HAND-WRITTEN MANIFESTS: Prometheus + Grafana +
+# Alertmanager together are hundreds of interlocking Kubernetes objects
+# (CRDs, RBAC, StatefulSets, dashboards-as-ConfigMaps). Hand-writing that
+# from scratch is not how this is done in real practice -- the maintained
+# community chart is; these values customize it for this project rather
+# than accepting every default.
+#
+# Install with:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm install monitoring prometheus-community/kube-prometheus-stack \
+#     --namespace monitoring --create-namespace \
+#     -f infra/k8s/monitoring/values-prometheus.yaml
+
+grafana:
+  adminPassword: "REPLACE_ME_BEFORE_INSTALL"   # override via --set on install, don't commit a real password
+  service:
+    type: ClusterIP   # exposed via Ingress below, not a public LoadBalancer
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'ams-dashboards'
+          folder: 'Apartment System'
+          type: file
+          options:
+            path: /var/lib/grafana/dashboards/ams
+  # Auto-provisions the Node.js/Express dashboard using the metrics this
+  # project's backend now exports at /metrics (see backend/middleware/metrics.js).
+  dashboards:
+    ams-dashboards:
+      nodejs-application-dashboard:
+        gnetId: 11159   # community "Node.js Application Dashboard" -- reads the same prom-client metric names this backend exports
+        revision: 2
+        datasource: Prometheus
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    resources:
+      requests: { cpu: "250m", memory: "512Mi" }
+      limits: { cpu: "500m", memory: "1Gi" }
+    # Restricts Prometheus to only scrape ServiceMonitors carrying this
+    # label -- prevents it silently trying (and failing) to scrape every
+    # random service in the cluster.
+    serviceMonitorSelector:
+      matchLabels:
+        release: monitoring
+
+alertmanager:
+  config:
+    route:
+      receiver: 'default'
+      routes:
+        - match: { severity: critical }
+          receiver: 'default'
+    receivers:
+      - name: 'default'
+        # Wire a real webhook/Slack/email receiver here before relying on
+        # this in production -- left as a placeholder since it needs a
+        # real destination (Slack webhook URL, PagerDuty key, etc.) that's
+        # specific to your team, not something to fabricate.

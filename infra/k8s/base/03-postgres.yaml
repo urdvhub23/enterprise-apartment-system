@@ -1,3 +1,9 @@
+# Postgres runs as a StatefulSet, not a Deployment. Why this matters:
+# a Deployment's pods are interchangeable and can be rescheduled to any
+# node with a fresh identity; a StatefulSet gives Postgres a stable
+# network identity (postgres-0) and a PersistentVolumeClaim that follows
+# the pod even if it's rescheduled -- required for a database, where
+# losing the attached disk means losing the data.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -51,7 +57,7 @@ metadata:
   name: postgres
   namespace: apartment-system
 spec:
-  clusterIP: None
+  clusterIP: None   # headless service -- required for StatefulSet stable DNS (postgres-0.postgres)
   selector:
     app: postgres
   ports:

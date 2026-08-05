@@ -1,3 +1,7 @@
+# Non-secret configuration, separated from Secrets (below) per Kubernetes
+# best practice: ConfigMaps are visible in plain text via `kubectl get
+# configmap -o yaml`, so anything sensitive (passwords, JWT secret) must
+# never go here -- see 02-secret-template.yaml instead.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,7 +11,7 @@ data:
   PORT: "5000"
   NODE_ENV: "production"
   JWT_EXPIRES_IN: "7d"
-  PG_HOST: "postgres"
+  PG_HOST: "postgres"          # Kubernetes Service DNS name, resolved cluster-internally
   PG_PORT: "5432"
   PG_DATABASE: "apartment_billing"
   PG_USER: "postgres"

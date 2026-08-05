@@ -1,0 +1,36 @@
+# This is the entire GitOps loop from the proposal:
+# "ArgoCD implements GitOps by continuously monitoring the code repository
+# and automatically syncing the Kubernetes cluster to the desired state."
+#
+# How it fits together with CI/CD:
+#   CI/CD (.github/workflows/ci-cd.yml) builds, scans, and pushes images,
+#   then commits an updated image tag into infra/k8s/base/*.yaml.
+#   ArgoCD (this file, running as a controller inside the cluster) polls
+#   this repo, notices infra/k8s/base changed, and applies it -- so the
+#   cluster state is ALWAYS defined by what's in git, never by someone
+#   running kubectl apply by hand. If the cluster ever drifts from git
+#   (e.g. someone manually edits a Deployment), ArgoCD's "self-heal"
+#   setting below reverts it automatically.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apartment-management-system
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/urdvhub23/enterprise-apartment-system.git
+    targetRevision: main
+    path: infra/k8s/base
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apartment-system
+
+  syncPolicy:
+    automated:
+      prune: true      # remove resources deleted from git
+      selfHeal: true    # revert any manual/out-of-band cluster changes
+    syncOptions:
+      - CreateNamespace=true
